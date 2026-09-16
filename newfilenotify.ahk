@@ -144,7 +144,7 @@ run, notepad.exe %logfile%
 return
 
 onlinehelp:
-run, https://www.lucdaigle.net/doku.php?id=newfilenotify.ahk
+run, https://wiki.lucdaigle.net/doku.php?id=newfilenotify.ahk
 return
 
 restartscript:

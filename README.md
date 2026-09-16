@@ -3,6 +3,16 @@ An AHK script to monitor one or more folders for new files and report them. I wr
 
 See https://wiki.lucdaigle.net/doku.php?id=newfilenotify.ahk
 
+## Requirements and running
+
+Install the latest stable [AutoHotkey v2](https://www.autohotkey.com/) release,
+then double-click `newfilenotify.ahk`. AutoHotkey v1 is no longer supported.
+
+Existing settings in `%AppData%\newfilenotifier\config.ini` are reused.
+The polling interval is in milliseconds; `pathstocheck` contains pipe-separated
+file patterns (for example, `C:\Folder One\*|D:\Folder Two\*`). Subfolders are
+included. Use the tray menu to edit settings, then Restart to apply them.
+
 ## File filtering
 
 Both the initial scan and subsequent scans ignore files with the Windows Hidden
@@ -19,7 +29,7 @@ A previously ignored file becomes eligible when it no longer matches either rule
 This version displays a New Files tray notification only; it has no New Files
 window or action for opening detected files.
 
-## Manual verification (AutoHotkey v1)
+## Manual verification (AutoHotkey v2)
 
 Use a test folder configured in `%AppData%\newfilenotifier\config.ini` and wait
 at least one configured polling interval after each change.

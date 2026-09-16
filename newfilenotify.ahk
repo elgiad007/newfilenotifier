@@ -1,169 +1,134 @@
-﻿/*
+/*
 newfilenotify.ahk - A script for monitoring one or more directories for new files.
 */
 
-#NoEnv  ; Recommended for performance and compatibility with future AutoHotkey releases.
-; #Warn  ; Enable warnings to assist with detecting common errors.
-SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
-SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
+#Requires AutoHotkey v2.0
+SetWorkingDir(A_ScriptDir)
+Persistent()
 
-; This keeps the script running (normally it would exit when it reached the final "return" statement).
-#Persistent
+; Keep the existing data and configuration locations.
+datadir := A_AppData "\newfilenotifier\"
+DirCreate(datadir)
+configfile := datadir "config.ini"
+logfile := datadir "newfilenotifylog.txt"
+defaultfolder := datadir "monitor\"
+DirCreate(defaultfolder)
+defaultmonitor := defaultfolder "*"
 
-global datadir, configfile, logfile, defaultfolder
-
-; Make sure we have a place to store data
-datadir = %A_AppData%\newfilenotifier\
-if not fileexist(datadir)
-	FileCreateDir, %datadir%
-
-configfile = %datadir%config.ini
-logfile = %datadir%newfilenotifylog.txt
-
-; Make sure we have a default folder to monitor
-defaultfolder = %datadir%monitor\
-if not fileexist(defaultfolder)
-	FileCreateDir, %defaultfolder%
-defaultmonitor = %defaultfolder%*
-
-; Log the start of this script.
 writelog("Starting script")
 
-; Create a new config.ini if one does not exist.
-if not FileExist(configfile)
-{
-	FileAppend, [config]`ninterval=5000`npathstocheck=%defaultmonitor%, %configfile%
-}
+if !FileExist(configfile)
+    FileAppend("[config]`ninterval=5000`npathstocheck=" defaultmonitor, configfile)
 
-; Read config.ini settings
-IniRead, timerinterval, %configfile%, config, interval, 5000
-IniRead, pathstocheck, %configfile%, config, pathstocheck, %defaultmonitor%
-; Log the values pulled from the INI file.
-writelog("Interval (ms) = " . timerinterval)
-writelog("Paths to check (pipe-delimited) = " . pathstocheck)
+timerinterval := IniRead(configfile, "config", "interval", 5000)
+pathstocheck := IniRead(configfile, "config", "pathstocheck", defaultmonitor)
+writelog("Interval (ms) = " timerinterval)
+writelog("Paths to check (pipe-delimited) = " pathstocheck)
 
-; Get the list of existing files for each folder in the INI.
-global currentfilelist
+; Use exact, case-insensitive paths so similar filenames remain distinct.
+currentfilelist := Map()
+currentfilelist.CaseSense := "Off"
 writelog("Performing initial file check...")
-
-loop parse, pathstocheck, |
+Loop Parse, pathstocheck, "|"
 {
-	loop Files, %a_loopfield%, R
-	{
-		if ShouldIgnoreFile(A_LoopFileFullPath, A_LoopFileAttrib)
-			continue
-		writelog("Found file: " . A_LoopFileFullPath)
-		currentfilelist = %currentfilelist%%A_LoopFileFullPath%`n
-	}
+    Loop Files, A_LoopField, "FR"
+    {
+        if ShouldIgnoreFile(A_LoopFileFullPath, A_LoopFileAttrib)
+            continue
+        writelog("Found file: " A_LoopFileFullPath)
+        currentfilelist[A_LoopFileFullPath] := true
+    }
 }
 
-Menu, Tray, NoStandard
-Menu, Tray, Add, Edit config.ini, editconfig
-Menu, Tray, Add, View Log File, viewlogfile
-Menu, Tray, Add
-Menu, Tray, Add, Online Help, onlinehelp
-Menu, Tray, Add
-Menu, Tray, Add, Restart, restartscript
-Menu, Tray, Add, Exit, exitscript
+A_TrayMenu.Delete()
+A_TrayMenu.Add("Edit config.ini", editconfig)
+A_TrayMenu.Add("View Log File", viewlogfile)
+A_TrayMenu.Add()
+A_TrayMenu.Add("Online Help", onlinehelp)
+A_TrayMenu.Add()
+A_TrayMenu.Add("Restart", restartscript)
+A_TrayMenu.Add("Exit", exitscript)
 
-SetTimer, checkfornewfiles, %timerinterval%
-
+SetTimer(checkfornewfiles, timerinterval)
 writelog("Waiting for new files...")
-return
 
-checkfornewfiles:
-checkpaths(pathstocheck)
-return
-
+checkfornewfiles()
+{
+    checkpaths(pathstocheck)
+}
 
 writelog(msg)
 {
-	FormatTime, currenttimestamp, %a_now%, yyyy-MM-dd HH:mm:ss
-	FileAppend, %currenttimestamp%`t%msg%`n, %logfile%
+    currenttimestamp := FormatTime(, "yyyy-MM-dd HH:mm:ss")
+    FileAppend(currenttimestamp "`t" msg "`n", logfile)
 }
 
 ; Ignore hidden files and Office owner/lock files before tracking or logging them.
 ShouldIgnoreFile(path, attributes)
 {
-	SplitPath, path, filename
-	return InStr(attributes, "H") || (SubStr(filename, 1, 2) = "~$")
+    SplitPath(path, &filename)
+    return InStr(attributes, "H") || (SubStr(filename, 1, 2) = "~$")
 }
 
-/*
-	Check the paths for new or missing files.
-*/
+; Check the paths for new or missing files.
 checkpaths(paths)
 {
-	; Initialize variables
-	checkingfilelist = 
-	newfiles = 
-	newcurrentfilelist =
-	
-	; Check each path for new files.
-	loop parse, paths, |
-	{
-		loop files, %a_loopfield%, R
-		{
-			if ShouldIgnoreFile(A_LoopFileFullPath, A_LoopFileAttrib)
-				continue
-			; Add this file to the list for checking.
-			checkingfilelist = %checkingfilelist%%A_LoopFileFullPath%`n
-			; Check for file in the current list.
-			if not instr(currentfilelist, a_loopfilefullpath)
-			{
-				writelog("Found new file: " . A_LoopFileFullPath)
-				newfiles = %newfiles%%A_LoopFileFullPath%`n
-			}
-		}
-	}
-	
-	; Build a new current file list by including only files from the previous current list that are still there (this omits any files that have been removed)
-	loop parse, currentfilelist, `n
-	{
-		if instr(checkingfilelist, a_loopfield)
-			newcurrentfilelist = %newcurrentfilelist%%a_loopfield%`n
-	}
-	
-	; Set the file list we just created plus the new files as the current list for the next run.
-	currentfilelist = %newcurrentfilelist%%newfiles%
-	
-	; Notify the user if we found any new files.
-	if newfiles then
-		notifynewfiles(newfiles)
-	
-	; Re-initialize variables, in case the list is large and takes up a lot of memory.
-	checkingfilelist = 
-	newfiles = 
-	newcurrentfilelist =
+    global currentfilelist
+    checkingfilelist := Map()
+    checkingfilelist.CaseSense := "Off"
+    newfiles := ""
+
+    Loop Parse, paths, "|"
+    {
+        Loop Files, A_LoopField, "FR"
+        {
+            if ShouldIgnoreFile(A_LoopFileFullPath, A_LoopFileAttrib)
+                continue
+            ; Overlapping monitored paths should notify only once per file.
+            if !currentfilelist.Has(A_LoopFileFullPath) && !checkingfilelist.Has(A_LoopFileFullPath)
+            {
+                writelog("Found new file: " A_LoopFileFullPath)
+                newfiles .= A_LoopFileFullPath "`n"
+            }
+            checkingfilelist[A_LoopFileFullPath] := true
+        }
+    }
+
+    ; Replacing the snapshot also removes files that no longer exist.
+    currentfilelist := checkingfilelist
+    if newfiles != ""
+        notifynewfiles(newfiles)
 }
 
 notifynewfiles(newfiles)
 {
-	TrayTip, New Files, %newfiles%
+    TrayTip(newfiles, "New Files")
 }
 
-/*
-	Tray menu labels.
-*/
+; Tray menu callbacks accept the arguments supplied by AutoHotkey v2.
+editconfig(*)
+{
+    Run('notepad.exe "' configfile '"')
+}
 
-editconfig:
-run, notepad.exe %configfile%
-return
+viewlogfile(*)
+{
+    Run('notepad.exe "' logfile '"')
+}
 
-viewlogfile:
-run, notepad.exe %logfile%
-return
+onlinehelp(*)
+{
+    Run("https://wiki.lucdaigle.net/doku.php?id=newfilenotify.ahk")
+}
 
-onlinehelp:
-run, https://wiki.lucdaigle.net/doku.php?id=newfilenotify.ahk
-return
+restartscript(*)
+{
+    writelog("User is restarting the script.")
+    Reload()
+}
 
-restartscript:
-writelog("User is restarting the script.")
-Reload
-return
-
-exitscript:
-writelog("User is exiting the script.")
-ExitApp
-return
+exitscript(*)
+{
+    writelog("User is exiting the script.")
+    ExitApp()
+}

@@ -32,7 +32,9 @@ On Windows 10/11, new files produce native toast notifications under **New File
 Notifier**. After the banner disappears, notifications remain in the Windows
 notification panel until dismissed or removed by Windows' history limits.
 There are no buttons or actions for opening detected files; clicking a toast
-only dismisses it.
+only dismisses it. Additional launches exit silently while the existing monitor
+keeps running, including launches triggered by notification clicks. To apply
+configuration changes, use **Restart** from the tray menu.
 
 `Toast.ahk` is our own AHK v2 library using Windows COM/WinRT APIs directly.
 Keep it beside `newfilenotify.ahk` when running the source. The executable in
@@ -82,7 +84,9 @@ at least one configured polling interval after each change.
 8. Let a new-file banner time out, then open the notification panel with Win+N
    on Windows 11. Confirm it remains under **New File Notifier**, including
    after exiting/restarting the script. Clicking it should dismiss it without
-   opening a file or starting a second monitor.
+   opening a file, showing a replacement prompt, or starting a second monitor.
+   Also launch the app again while it is running and confirm it silently keeps
+   the original monitor. Verify the tray menu's **Restart** still works.
 9. Test paths containing `&` and non-ASCII characters, and several files in one
    scan. Confirm the notification text and log preserve the names.
 

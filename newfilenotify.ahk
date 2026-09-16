@@ -3,6 +3,8 @@ newfilenotify.ahk - A script for monitoring one or more directories for new file
 */
 
 #Requires AutoHotkey v2.0
+; Ignore duplicate launches before AutoHotkey can prompt, including toast clicks.
+#SingleInstance Ignore
 #Include Toast.ahk
 
 if A_Args.Length && A_Args[1] = "--toast-dismiss"

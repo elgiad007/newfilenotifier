@@ -26,8 +26,36 @@ Other visible files, including `.tmp` files and names starting with `~` but not
 inside it. Temporary files that do not match either rule remain eligible.
 A previously ignored file becomes eligible when it no longer matches either rule.
 
-This version displays a New Files tray notification only; it has no New Files
-window or action for opening detected files.
+## Windows notifications
+
+On Windows 10/11, new files produce native toast notifications under **New File
+Notifier**. After the banner disappears, notifications remain in the Windows
+notification panel until dismissed or removed by Windows' history limits.
+There are no buttons or actions for opening detected files; clicking a toast
+only dismisses it.
+
+`Toast.ahk` is our own AHK v2 library using Windows COM/WinRT APIs directly.
+Keep it beside `newfilenotify.ahk` when running the source. The executable in
+`distribute` includes the library and needs no separate AHK installation.
+No third-party libraries or PowerShell helpers are required.
+
+Startup creates/refreshes a per-user **New File Notifier** Start Menu shortcut
+with a stable app ID and stub activation CLSID, and the inert
+`HKCU\Software\Classes\newfilenotifier-toast` protocol handler. The handler
+invokes the script with `--toast-dismiss`, which exits before starting a monitor.
+This supports notification history without a running COM activation server.
+Registration requires no administrator privileges. Run the script again after
+moving it to update the registered paths. The source and compiled versions
+share one notification identity; the most recently started version owns the
+shortcut and protocol registration.
+
+If registration or a toast API call fails, the error is logged and a temporary
+tray notification is used as a fallback. Windows notification settings still
+control whether banners and history are enabled. The log retains the full list
+of detected paths even when a long notification is visually truncated.
+
+To remove registration after exiting the app, delete the **New File Notifier**
+shortcut from your user Start Menu and the above per-user registry key.
 
 ## Manual verification (AutoHotkey v2)
 
@@ -51,3 +79,15 @@ at least one configured polling interval after each change.
 7. Remove the Hidden attribute from an ignored file. Confirm it is reported
    once on a subsequent scan. Restart and confirm ignored files remain absent
    from new log entries; historical log entries remain intact.
+8. Let a new-file banner time out, then open the notification panel with Win+N
+   on Windows 11. Confirm it remains under **New File Notifier**, including
+   after exiting/restarting the script. Clicking it should dismiss it without
+   opening a file or starting a second monitor.
+9. Test paths containing `&` and non-ASCII characters, and several files in one
+   scan. Confirm the notification text and log preserve the names.
+
+For an automated Windows integration check, run the main app once to register
+it, then run `AutoHotkey64.exe /ErrorStdOut tests\toast-smoke.ahk` (or
+`AutoHotkey32.exe`). It sends one test notification, waits 15 seconds, and
+checks Windows' notification history and the retained text. Notifications must
+be enabled; do not dismiss the test notification during the check.

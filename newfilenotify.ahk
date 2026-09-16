@@ -3,6 +3,11 @@ newfilenotify.ahk - A script for monitoring one or more directories for new file
 */
 
 #Requires AutoHotkey v2.0
+#Include Toast.ahk
+
+if A_Args.Length && A_Args[1] = "--toast-dismiss"
+    ExitApp()
+
 SetWorkingDir(A_ScriptDir)
 Persistent()
 
@@ -16,6 +21,15 @@ DirCreate(defaultfolder)
 defaultmonitor := defaultfolder "*"
 
 writelog("Starting script")
+
+toastReady := false
+try {
+    Toast.Register("LucDaigle.NewFileNotifier", "New File Notifier",
+        "{7B59283A-714E-4FAD-9C94-A6E990DDAE8B}", "newfilenotifier-toast")
+    toastReady := true
+} catch Error as err {
+    writelog("Toast registration failed: " err.Message)
+}
 
 if !FileExist(configfile)
     FileAppend("[config]`ninterval=5000`npathstocheck=" defaultmonitor, configfile)
@@ -102,7 +116,14 @@ checkpaths(paths)
 
 notifynewfiles(newfiles)
 {
-    TrayTip(newfiles, "New Files")
+    try {
+        if !toastReady
+            throw Error("Toast registration is unavailable")
+        Toast.Show("New Files", newfiles)
+    } catch Error as err {
+        writelog("Toast notification failed (using temporary tray notification): " err.Message)
+        TrayTip(newfiles, "New Files")
+    }
 }
 
 ; Tray menu callbacks accept the arguments supplied by AutoHotkey v2.

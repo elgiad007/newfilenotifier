@@ -50,6 +50,8 @@ loop parse, pathstocheck, |
 {
 	loop Files, %a_loopfield%, R
 	{
+		if ShouldIgnoreFile(A_LoopFileFullPath, A_LoopFileAttrib)
+			continue
 		writelog("Found file: " . A_LoopFileFullPath)
 		currentfilelist = %currentfilelist%%A_LoopFileFullPath%`n
 	}
@@ -80,6 +82,13 @@ writelog(msg)
 	FileAppend, %currenttimestamp%`t%msg%`n, %logfile%
 }
 
+; Ignore hidden files and Office owner/lock files before tracking or logging them.
+ShouldIgnoreFile(path, attributes)
+{
+	SplitPath, path, filename
+	return InStr(attributes, "H") || (SubStr(filename, 1, 2) = "~$")
+}
+
 /*
 	Check the paths for new or missing files.
 */
@@ -95,6 +104,8 @@ checkpaths(paths)
 	{
 		loop files, %a_loopfield%, R
 		{
+			if ShouldIgnoreFile(A_LoopFileFullPath, A_LoopFileAttrib)
+				continue
 			; Add this file to the list for checking.
 			checkingfilelist = %checkingfilelist%%A_LoopFileFullPath%`n
 			; Check for file in the current list.
